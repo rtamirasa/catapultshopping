@@ -13,20 +13,9 @@ import {
   ReferenceDot,
 } from 'recharts'
 import { cn } from '@/lib/utils'
-import type { PricePoint } from '@/lib/mock-data'
-import {
-  MOCK_PRICE_HISTORY_24H,
-  MOCK_PRICE_HISTORY_7D,
-  MOCK_PRICE_HISTORY_30D,
-} from '@/lib/mock-data'
+import { usePriceHistory } from '@/lib/hooks/use-price-history'
 
-type Range = '24H' | '7D' | '30D'
-
-const RANGE_DATA: Record<Range, PricePoint[]> = {
-  '24H': MOCK_PRICE_HISTORY_24H,
-  '7D': MOCK_PRICE_HISTORY_7D,
-  '30D': MOCK_PRICE_HISTORY_30D,
-}
+type Range = '7D' | '30D'
 
 function formatLabel(timestamp: string, range: Range): string {
   const d = new Date(timestamp)
@@ -55,15 +44,41 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   )
 }
 
-export function PriceChart() {
-  const [range, setRange] = useState<Range>('30D')
+interface PriceChartProps {
+  productId: string
+  storeId: string
+}
 
-  const rawData = RANGE_DATA[range]
+export function PriceChart({ productId, storeId }: PriceChartProps) {
+  const [range, setRange] = useState<Range>('30D')
+  const days = range === '7D' ? 7 : 30
+
+  const { data: rawData, loading } = usePriceHistory(productId, storeId, days)
 
   const chartData = useMemo(() => rawData.map((p) => ({
     label: formatLabel(p.timestamp, range),
     price: p.price,
   })), [rawData, range])
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="h-64 flex items-center justify-center">
+          <div className="text-sm text-muted-foreground">Loading price history...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="h-64 flex items-center justify-center">
+          <div className="text-sm text-muted-foreground">No price history available</div>
+        </div>
+      </div>
+    )
+  }
 
   const prices = chartData.map((d) => d.price)
   const minPrice = Math.min(...prices)
@@ -92,7 +107,7 @@ export function PriceChart() {
         </div>
         {/* Range toggle */}
         <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
-          {(['24H', '7D', '30D'] as Range[]).map((r) => (
+          {(['7D', '30D'] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}

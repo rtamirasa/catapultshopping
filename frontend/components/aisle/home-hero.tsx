@@ -2,15 +2,45 @@
 
 import Link from 'next/link'
 import { ChevronDown, ScanLine, TrendingDown } from 'lucide-react'
-import { MOCK_GROCERY_LISTS } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
+import { useGroceryLists } from '@/lib/hooks/use-grocery-lists'
 
 export function HomeHero() {
-  const [selectedListId, setSelectedListId] = useState(MOCK_GROCERY_LISTS[0].id)
+  const { lists, loading } = useGroceryLists()
+  const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const activeList = MOCK_GROCERY_LISTS.find((l) => l.id === selectedListId)!
+  // Auto-select first list when loaded
+  if (!selectedListId && lists.length > 0) {
+    setSelectedListId(lists[0].id)
+  }
+
+  if (loading) {
+    return (
+      <section className="pb-4">
+        <div className="rounded-2xl border border-border bg-card p-5 animate-pulse h-64" />
+      </section>
+    )
+  }
+
+  if (lists.length === 0) {
+    return (
+      <section className="pb-4">
+        <div className="rounded-2xl border border-border bg-card p-5 text-center">
+          <p className="text-muted-foreground mb-4">No grocery lists yet</p>
+          <Link
+            href="/basket"
+            className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2.5 font-bold text-sm transition-all hover:opacity-90"
+          >
+            Create Your First List
+          </Link>
+        </div>
+      </section>
+    )
+  }
+
+  const activeList = lists.find((l) => l.id === selectedListId) || lists[0]
   const savingsPct = ((activeList.estimatedSavings / activeList.totalCurrentPrice) * 100).toFixed(0)
   const barWidth = Math.min(100, Math.round((activeList.estimatedSavings / activeList.totalCurrentPrice) * 100))
 
@@ -30,7 +60,7 @@ export function HomeHero() {
 
           {dropdownOpen && (
             <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]">
-              {MOCK_GROCERY_LISTS.map((list) => (
+              {lists.map((list) => (
                 <button
                   key={list.id}
                   onClick={() => { setSelectedListId(list.id); setDropdownOpen(false) }}
@@ -106,7 +136,11 @@ export function HomeHero() {
           </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground mt-0.5 mb-0.5">Updated</p>
-            <p className="text-[11px] font-semibold text-foreground">{activeList.lastUpdated}</p>
+            <p className="text-[11px] font-semibold text-foreground">
+              {typeof activeList.lastUpdated === 'string'
+                ? activeList.lastUpdated
+                : new Date(activeList.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
           </div>
         </div>
       </div>

@@ -73,6 +73,7 @@ export interface SavingsBreakdown {
 export interface BasketItem {
   id: string
   product: Product
+  productId?: string
   quantity: number
   currentStorePrice: number
   bestAlternatePrice: number
