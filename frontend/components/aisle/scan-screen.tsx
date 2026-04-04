@@ -302,7 +302,7 @@ function ScanResult({
       {/* Actions */}
       {isUnlocked && (
         <Link
-          href="/product"
+          href={`/product?id=${result.product.id}`}
           className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-3.5 font-bold text-sm transition-all duration-200 hover:opacity-90 active:scale-95"
         >
           View Full Intelligence
