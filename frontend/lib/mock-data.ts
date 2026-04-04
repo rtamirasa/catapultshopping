@@ -105,6 +105,7 @@ export interface GroceryList {
   estimatedSavings: number
   lastUpdated: string
   items: BasketItem[]
+  currentStoreId?: string
 }
 
 export interface StoreRanking {

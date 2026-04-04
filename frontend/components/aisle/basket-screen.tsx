@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ShoppingBasket, Plus, ChevronRight, Pencil, Trash2,
   ShoppingCart, Clock, Store, ArrowLeft, Check, X,
@@ -8,19 +8,34 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RecommendationBadge } from './recommendation-badge'
+import { StoreSelector } from './store-selector'
+import { ProductSearchDialog } from './product-search-dialog'
 import { useGroceryLists } from '@/lib/hooks/use-grocery-lists'
+import { useStores } from '@/lib/hooks/use-stores'
+import { calculatePricesForStore, calculateTotals } from '@/lib/utils/price-calculator'
 import type { GroceryList, BasketItem, RecommendationAction } from '@/lib/mock-data'
 
 type View = 'lists' | 'detail' | 'edit-item' | 'new-list'
 
 export function BasketScreen() {
   const { lists, loading, createList: createListAPI, deleteList: deleteListAPI, updateList: updateListAPI } = useGroceryLists()
+  const { stores, loading: storesLoading } = useStores()
   const [view, setView] = useState<View>('lists')
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<BasketItem | null>(null)
   const [newListName, setNewListName] = useState('')
+  const [showSearchDialog, setShowSearchDialog] = useState(false)
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
+  const [switchingStore, setSwitchingStore] = useState(false)
 
   const activeList = lists.find((l) => l.id === activeListId) ?? null
+
+  // Set initial store selection when list is loaded
+  useEffect(() => {
+    if (activeList?.currentStoreId && !selectedStoreId) {
+      setSelectedStoreId(activeList.currentStoreId)
+    }
+  }, [activeList?.id, activeList?.currentStoreId])
 
   if (loading) {
     return (
@@ -85,6 +100,142 @@ export function BasketScreen() {
     setView('detail')
   }
 
+  async function handleStoreChange(storeId: string) {
+    if (!activeList || switchingStore) return
+
+    console.log('Switching to store:', storeId)
+    setSwitchingStore(true)
+    setSelectedStoreId(storeId)
+
+    try {
+      // Fetch all products for items in the list
+      const productIds = activeList.items.map(item => item.product.id || item.productId).filter(Boolean)
+      console.log('Fetching products:', productIds)
+
+      const productsDataResponses = await Promise.all(
+        productIds.map(id => fetch(`/api/products/${id}`).then(r => r.json()))
+      )
+
+      // Transform the API response to match the expected format
+      const productsData = productsDataResponses.map(response => ({
+        id: response.product.id,
+        name: response.product.name,
+        brand: response.product.brand,
+        category: response.product.category,
+        storeComparisons: response.storeComparisons
+      }))
+
+      console.log('Products data:', productsData)
+
+      // Recalculate prices for the new store
+      const updatedItems = calculatePricesForStore(activeList.items, storeId, productsData)
+      console.log('Updated items:', updatedItems)
+
+      const totals = calculateTotals(updatedItems)
+      console.log('New totals:', totals)
+
+      // Update the list
+      await updateListAPI(activeList.id, {
+        items: updatedItems,
+        currentStoreId: storeId,
+        ...totals
+      })
+    } catch (error) {
+      console.error('Error switching stores:', error)
+      // Revert selection on error
+      setSelectedStoreId(activeList.currentStoreId || null)
+    } finally {
+      setSwitchingStore(false)
+    }
+  }
+
+  async function handleAddItem(productId: string, quantity: number) {
+    if (!activeList) return
+
+    try {
+      // Fetch product details
+      const response = await fetch(`/api/products/${productId}`)
+      if (!response.ok) throw new Error('Failed to fetch product')
+      const data = await response.json()
+
+      const product = data.product
+      const storeComparisons = data.storeComparisons || []
+
+      console.log('Adding item:', product.name)
+      console.log('Store comparisons:', storeComparisons)
+      console.log('Selected store ID:', selectedStoreId)
+
+      // If no store selected, use the first/cheapest store
+      let currentStoreId = selectedStoreId
+      if (!currentStoreId && storeComparisons.length > 0) {
+        currentStoreId = storeComparisons[0].storeId
+        setSelectedStoreId(currentStoreId)
+        console.log('Auto-selected store:', currentStoreId)
+      }
+
+      // Get price at current store
+      const currentStoreData = storeComparisons.find((sc: any) => sc.storeId === currentStoreId)
+      const currentStorePrice = currentStoreData?.currentPrice || 0
+
+      console.log('Current store data:', currentStoreData)
+      console.log('Current store price:', currentStorePrice)
+
+      // Find the absolute best price across ALL stores (including current)
+      let bestAlternate
+      if (storeComparisons.length > 0) {
+        bestAlternate = storeComparisons.reduce((best: any, current: any) =>
+          current.currentPrice < best.currentPrice ? current : best
+        )
+      } else {
+        // No store data at all
+        bestAlternate = { currentPrice: 0, storeName: 'N/A' }
+      }
+
+      // Determine recommendation
+      let recommendation: RecommendationAction = 'buy_now'
+      const priceDiff = currentStorePrice - bestAlternate.currentPrice
+      if (priceDiff > 1.0) {
+        recommendation = 'switch_stores'
+      } else if (priceDiff > 0.25) {
+        recommendation = 'wait'
+      }
+
+      // Create new basket item
+      const newItem: BasketItem = {
+        id: `bi_${Date.now()}`,
+        product: {
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          category: product.category
+        },
+        productId: product.id,
+        quantity,
+        currentStorePrice,
+        bestAlternatePrice: bestAlternate.currentPrice,
+        bestAlternateStore: bestAlternate.storeName,
+        recommendation,
+        potentialSavings: Math.max(0, priceDiff * quantity)
+      }
+
+      // Add to list
+      const updatedItems = [...activeList.items, newItem]
+      const totals = calculateTotals(updatedItems)
+
+      await updateListAPI(activeList.id, {
+        items: updatedItems,
+        itemCount: updatedItems.length,
+        currentStoreId,
+        ...totals
+      })
+
+      setShowSearchDialog(false)
+    } catch (error) {
+      console.error('Error adding item:', error)
+      throw error
+    }
+  }
+
   if (view === 'new-list') {
     return (
       <div className="space-y-4">
@@ -122,6 +273,16 @@ export function BasketScreen() {
       ? ((activeList.estimatedSavings / activeList.totalCurrentPrice) * 100).toFixed(0)
       : '0'
 
+    const selectedStore = stores.find(s => s.storeId === selectedStoreId)
+
+    // Find which store(s) have the best prices
+    const bestStoreNames = new Set(activeList.items.map(item => item.bestAlternateStore))
+    const bestStoreName = bestStoreNames.size === 1
+      ? Array.from(bestStoreNames)[0]
+      : bestStoreNames.size > 1
+        ? 'multiple stores'
+        : selectedStore?.name
+
     return (
       <div className="space-y-4">
         {/* Header */}
@@ -135,16 +296,40 @@ export function BasketScreen() {
           </div>
         </div>
 
+        {/* Store Selector */}
+        {!storesLoading && stores.length > 0 && (
+          <StoreSelector
+            stores={stores}
+            selectedStoreId={selectedStoreId}
+            onStoreChange={handleStoreChange}
+            disabled={switchingStore}
+          />
+        )}
+
+        {/* Product Search Dialog */}
+        <ProductSearchDialog
+          open={showSearchDialog}
+          onClose={() => setShowSearchDialog(false)}
+          currentStoreId={selectedStoreId}
+          onAddItem={handleAddItem}
+        />
+
         {/* Summary */}
         {activeList.totalCurrentPrice > 0 && (
           <div className="rounded-2xl border border-border bg-card p-4">
             <div className="flex items-end justify-between mb-3">
               <div>
-                <p className="text-xs text-muted-foreground">Total at current stores</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedStore ? `Total at ${selectedStore.name}` : 'Total at current stores'}
+                </p>
                 <p className="text-3xl font-extrabold text-foreground">${activeList.totalCurrentPrice.toFixed(2)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Best possible</p>
+                <p className="text-xs text-muted-foreground">
+                  {activeList.estimatedSavings > 0.01
+                    ? `Best at ${bestStoreName}`
+                    : 'Best price!'}
+                </p>
                 <p className="text-xl font-bold text-success">${activeList.totalCheapestPrice.toFixed(2)}</p>
               </div>
             </div>
@@ -185,7 +370,10 @@ export function BasketScreen() {
         </div>
 
         {/* Add item CTA */}
-        <button className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl py-3 text-sm font-semibold text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+        <button
+          onClick={() => setShowSearchDialog(true)}
+          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl py-3 text-sm font-semibold text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+        >
           <Plus className="size-4" />
           Add item (scan or search)
         </button>
