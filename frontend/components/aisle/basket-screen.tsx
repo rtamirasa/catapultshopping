@@ -8,13 +8,13 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RecommendationBadge } from './recommendation-badge'
-import { MOCK_GROCERY_LISTS } from '@/lib/mock-data'
+import { useGroceryLists } from '@/lib/hooks/use-grocery-lists'
 import type { GroceryList, BasketItem, RecommendationAction } from '@/lib/mock-data'
 
 type View = 'lists' | 'detail' | 'edit-item' | 'new-list'
 
 export function BasketScreen() {
-  const [lists, setLists] = useState<GroceryList[]>(MOCK_GROCERY_LISTS)
+  const { lists, loading, createList: createListAPI, deleteList: deleteListAPI, updateList: updateListAPI } = useGroceryLists()
   const [view, setView] = useState<View>('lists')
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<BasketItem | null>(null)
@@ -22,54 +22,64 @@ export function BasketScreen() {
 
   const activeList = lists.find((l) => l.id === activeListId) ?? null
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border bg-card p-4 h-20 animate-pulse" />
+        <div className="rounded-2xl border border-border bg-card p-4 h-20 animate-pulse" />
+        <div className="rounded-2xl border border-border bg-card p-4 h-20 animate-pulse" />
+      </div>
+    )
+  }
+
   function openList(id: string) {
     setActiveListId(id)
     setView('detail')
   }
 
-  function deleteList(id: string) {
-    setLists((prev) => prev.filter((l) => l.id !== id))
+  async function deleteList(id: string) {
+    await deleteListAPI(id)
   }
 
-  function removeItem(listId: string, itemId: string) {
-    setLists((prev) =>
-      prev.map((l) =>
-        l.id === listId
-          ? { ...l, items: l.items.filter((i) => i.id !== itemId), itemCount: l.itemCount - 1 }
-          : l
-      )
+  async function removeItem(listId: string, itemId: string) {
+    const list = lists.find(l => l.id === listId)
+    if (!list) return
+
+    const updatedItems = list.items.filter(i => i.id !== itemId)
+    const newTotal = updatedItems.reduce((sum, item) => sum + (item.currentStorePrice * item.quantity), 0)
+    const newCheapest = updatedItems.reduce((sum, item) => sum + (item.bestAlternatePrice * item.quantity), 0)
+
+    await updateListAPI(listId, {
+      items: updatedItems,
+      itemCount: updatedItems.length,
+      totalCurrentPrice: newTotal,
+      totalCheapestPrice: newCheapest,
+      estimatedSavings: newTotal - newCheapest
+    })
+  }
+
+  async function updateQty(listId: string, itemId: string, delta: number) {
+    const list = lists.find(l => l.id === listId)
+    if (!list) return
+
+    const updatedItems = list.items.map(i =>
+      i.id === itemId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i
     )
+
+    const newTotal = updatedItems.reduce((sum, item) => sum + (item.currentStorePrice * item.quantity), 0)
+    const newCheapest = updatedItems.reduce((sum, item) => sum + (item.bestAlternatePrice * item.quantity), 0)
+
+    await updateListAPI(listId, {
+      items: updatedItems,
+      totalCurrentPrice: newTotal,
+      totalCheapestPrice: newCheapest,
+      estimatedSavings: newTotal - newCheapest
+    })
   }
 
-  function updateQty(listId: string, itemId: string, delta: number) {
-    setLists((prev) =>
-      prev.map((l) =>
-        l.id === listId
-          ? {
-              ...l,
-              items: l.items.map((i) =>
-                i.id === itemId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i
-              ),
-            }
-          : l
-      )
-    )
-  }
-
-  function createList() {
+  async function createList() {
     if (!newListName.trim()) return
-    const newList: GroceryList = {
-      id: `list_${Date.now()}`,
-      name: newListName.trim(),
-      emoji: '🛒',
-      itemCount: 0,
-      totalCurrentPrice: 0,
-      totalCheapestPrice: 0,
-      estimatedSavings: 0,
-      lastUpdated: 'just now',
-      items: [],
-    }
-    setLists((prev) => [...prev, newList])
+    const newList = await createListAPI(newListName.trim(), '🛒')
     setNewListName('')
     setActiveListId(newList.id)
     setView('detail')
@@ -366,6 +376,7 @@ function DetailItemCard({
   onQtyDown: () => void
 }) {
   const Icon = REC_ICON[item.recommendation]
+  const productName = item.product?.name ?? item.productId ?? 'Unknown product'
 
   return (
     <div className="rounded-xl border border-border bg-card p-3">
@@ -375,7 +386,7 @@ function DetailItemCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-semibold text-foreground leading-snug">{item.product.name}</p>
+            <p className="text-sm font-semibold text-foreground leading-snug">{productName}</p>
             <button onClick={onRemove} className="text-muted-foreground hover:text-danger transition-colors shrink-0">
               <X className="size-4" />
             </button>

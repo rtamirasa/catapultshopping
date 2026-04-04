@@ -2,13 +2,42 @@
 
 import Link from 'next/link'
 import { ArrowRight, TrendingDown, TrendingUp, Users } from 'lucide-react'
-import { MOCK_PRICE_MOVEMENTS } from '@/lib/mock-data'
 import type { PriceMovement } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { usePriceMovements } from '@/lib/hooks/use-price-movements'
 
 export function FeaturedInsightCard() {
-  const drop = MOCK_PRICE_MOVEMENTS.find((m) => m.direction === 'down')!
-  const spike = MOCK_PRICE_MOVEMENTS.find((m) => m.direction === 'up')!
+  const { data, loading } = usePriceMovements()
+
+  if (loading) {
+    return (
+      <section className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          Today&apos;s Price Moves
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-border bg-card p-3.5 h-40 animate-pulse" />
+          <div className="rounded-2xl border border-border bg-card p-3.5 h-40 animate-pulse" />
+        </div>
+      </section>
+    )
+  }
+
+  const drop = data?.drops[0]
+  const spike = data?.spikes[0]
+
+  if (!drop && !spike) {
+    return (
+      <section className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          Today&apos;s Price Moves
+        </p>
+        <div className="rounded-2xl border border-border bg-card p-4 text-center text-muted-foreground text-sm">
+          No significant price movements today
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="mb-5">
@@ -16,8 +45,8 @@ export function FeaturedInsightCard() {
         Today&apos;s Price Moves
       </p>
       <div className="grid grid-cols-2 gap-3">
-        <MovementCard movement={drop} label="Biggest Drop" />
-        <MovementCard movement={spike} label="Biggest Spike" />
+        {drop && <MovementCard movement={drop} label="Biggest Drop" />}
+        {spike && <MovementCard movement={spike} label="Biggest Spike" />}
       </div>
     </section>
   )

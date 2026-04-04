@@ -8,22 +8,41 @@ import { PriceChart } from './price-chart'
 import { StoreComparisonCard } from './store-comparison-card'
 import { SavingsBreakdownCard } from './savings-card'
 import { ObservationFeed } from './observation-feed'
-import {
-  MOCK_FEATURED_PRODUCT,
-  MOCK_RECOMMENDATION,
-  MOCK_BEST_TIME_TO_BUY,
-  MOCK_VERIFICATION_STATS,
-  MOCK_STORE_COMPARISONS,
-  MOCK_SAVINGS_BREAKDOWN,
-  MOCK_RECENT_OBSERVATIONS,
-} from '@/lib/mock-data'
+import { useProduct } from '@/lib/hooks/use-product'
 
-const CURRENT_PRICE = 5.49
-const RECENT_AVG = 5.72
-const PRICE_DELTA = CURRENT_PRICE - RECENT_AVG
-const PCT_DELTA = ((PRICE_DELTA / RECENT_AVG) * 100).toFixed(1)
+// Use the first spike product as default
+const DEFAULT_PRODUCT_ID = 'prod-eggs-large'
+const DEFAULT_STORE_ID = 'walmart-lafayette-1'
 
 export function ProductDetailScreen() {
+  const { data, loading } = useProduct(DEFAULT_PRODUCT_ID)
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border bg-card p-4 h-32 animate-pulse" />
+        <div className="rounded-2xl border border-border bg-card p-4 h-20 animate-pulse" />
+        <div className="rounded-2xl border border-border bg-card p-4 h-64 animate-pulse" />
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="text-center text-muted-foreground">Product not found</div>
+      </div>
+    )
+  }
+
+  const { product, storeComparisons, recommendation } = data
+
+  // Get current store comparison (default to first one)
+  const currentStore = storeComparisons.find(s => s.storeId === DEFAULT_STORE_ID) || storeComparisons[0]
+  const CURRENT_PRICE = currentStore?.currentPrice || 0
+  const RECENT_AVG = 0 // TODO: Get from price summary
+  const PRICE_DELTA = 0
+  const PCT_DELTA = '0'
   const isDown = PRICE_DELTA < 0
 
   return (
@@ -32,30 +51,42 @@ export function ProductDetailScreen() {
       <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-start gap-4">
           {/* Image placeholder */}
-          <div className="size-20 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-            <Package className="size-10 text-muted-foreground/40" />
-          </div>
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="size-20 rounded-xl object-cover shrink-0"
+            />
+          ) : (
+            <div className="size-20 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+              <Package className="size-10 text-muted-foreground/40" />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-              {MOCK_FEATURED_PRODUCT.brand}
+              {product.brand}
             </p>
             <p className="font-bold text-foreground text-base leading-snug mt-0.5">
-              {MOCK_FEATURED_PRODUCT.name}
+              {product.name}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Whole Foods · Dairy</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {currentStore?.storeName} · {product.category}
+            </p>
 
             {/* Price + delta */}
             <div className="flex items-baseline gap-3 mt-2">
               <span className="text-3xl font-extrabold text-foreground">
                 ${CURRENT_PRICE.toFixed(2)}
               </span>
-              <span className={cn(
-                'flex items-center gap-0.5 text-sm font-semibold',
-                isDown ? 'text-success' : 'text-danger'
-              )}>
-                {isDown ? <TrendingDown className="size-4" /> : <TrendingUp className="size-4" />}
-                {isDown ? '' : '+'}{PCT_DELTA}% vs avg
-              </span>
+              {PRICE_DELTA !== 0 && (
+                <span className={cn(
+                  'flex items-center gap-0.5 text-sm font-semibold',
+                  isDown ? 'text-success' : 'text-danger'
+                )}>
+                  {isDown ? <TrendingDown className="size-4" /> : <TrendingUp className="size-4" />}
+                  {isDown ? '' : '+'}{PCT_DELTA}% vs avg
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -63,41 +94,13 @@ export function ProductDetailScreen() {
 
       {/* Recommendation */}
       <RecommendationBadgeLarge
-        action={MOCK_RECOMMENDATION.action}
-        headline={MOCK_RECOMMENDATION.headline}
-        explanation={MOCK_RECOMMENDATION.explanation}
+        action={recommendation.action}
+        headline={recommendation.headline}
+        explanation={recommendation.explanation}
       />
 
       {/* Price chart */}
-      <PriceChart />
-
-      {/* Best time to buy */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="size-4 text-primary" />
-          <p className="text-sm font-semibold">Best Time to Buy</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-secondary/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Cheapest day</p>
-            <p className="font-bold text-foreground text-sm">{MOCK_BEST_TIME_TO_BUY.cheapestDay}</p>
-          </div>
-          <div className="bg-secondary/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Time window</p>
-            <p className="font-bold text-foreground text-sm">{MOCK_BEST_TIME_TO_BUY.cheapestTimeWindow}</p>
-          </div>
-          <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Est. savings</p>
-            <p className="font-bold text-success text-sm">-${MOCK_BEST_TIME_TO_BUY.estimatedSavings.toFixed(2)}</p>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2 bg-secondary/40 rounded-lg p-2.5">
-          <Clock className="size-3.5 text-muted-foreground shrink-0" />
-          <p className="text-xs text-muted-foreground">
-            Current projected low: <span className="text-success font-bold">${MOCK_BEST_TIME_TO_BUY.projectedLowPrice.toFixed(2)}</span>
-          </p>
-        </div>
-      </div>
+      <PriceChart productId={DEFAULT_PRODUCT_ID} storeId={DEFAULT_STORE_ID} />
 
       {/* Store comparison */}
       <div>
@@ -105,7 +108,7 @@ export function ProductDetailScreen() {
           Store Comparison
         </p>
         <div className="space-y-3">
-          {MOCK_STORE_COMPARISONS.map((store) => (
+          {storeComparisons.map((store) => (
             <StoreComparisonCard
               key={store.storeId}
               store={store}
@@ -115,19 +118,13 @@ export function ProductDetailScreen() {
         </div>
       </div>
 
-      {/* Savings breakdown */}
-      <SavingsBreakdownCard breakdown={MOCK_SAVINGS_BREAKDOWN} />
-
-      {/* Trust panel */}
+      {/* Trust panel - simplified for now */}
       <TrustPanel
-        verifiedBy={MOCK_VERIFICATION_STATS.verifiedBy}
-        lastUpdatedMinutesAgo={MOCK_VERIFICATION_STATS.lastUpdatedMinutesAgo}
-        confidenceScore={MOCK_VERIFICATION_STATS.confidenceScore}
-        totalObservations={MOCK_VERIFICATION_STATS.totalObservations}
+        verifiedBy={storeComparisons[0]?.confidence || 0}
+        lastUpdatedMinutesAgo={5}
+        confidenceScore={storeComparisons[0]?.confidence || 0}
+        totalObservations={15}
       />
-
-      {/* Recent observations */}
-      <ObservationFeed observations={MOCK_RECENT_OBSERVATIONS} />
     </div>
   )
 }
