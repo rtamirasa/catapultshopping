@@ -1,5 +1,6 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { Package, Calendar, Clock, TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RecommendationBadgeLarge } from './recommendation-badge'
@@ -15,7 +16,14 @@ const DEFAULT_PRODUCT_ID = 'prod-eggs-large'
 const DEFAULT_STORE_ID = 'walmart-lafayette-1'
 
 export function ProductDetailScreen() {
-  const { data, loading } = useProduct(DEFAULT_PRODUCT_ID)
+  const searchParams = useSearchParams()
+  const productId = searchParams.get('id') || DEFAULT_PRODUCT_ID
+
+  console.log('Product Detail Screen - Product ID:', productId)
+
+  const { data, loading } = useProduct(productId)
+
+  console.log('Product data:', data, 'loading:', loading)
 
   if (loading) {
     return (
@@ -100,7 +108,7 @@ export function ProductDetailScreen() {
       />
 
       {/* Price chart */}
-      <PriceChart productId={DEFAULT_PRODUCT_ID} storeId={DEFAULT_STORE_ID} />
+      <PriceChart productId={productId} storeId={currentStore?.storeId || DEFAULT_STORE_ID} />
 
       {/* Store comparison */}
       <div>

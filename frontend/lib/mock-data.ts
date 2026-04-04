@@ -105,6 +105,7 @@ export interface GroceryList {
   estimatedSavings: number
   lastUpdated: string
   items: BasketItem[]
+  currentStoreId?: string
 }
 
 export interface StoreRanking {
@@ -166,9 +167,9 @@ export interface RecentScan {
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
 export const MOCK_FEATURED_PRODUCT: Product = {
-  id: 'prod_001',
-  name: 'Chobani Greek Yogurt, Plain',
-  brand: 'Chobani',
+  id: 'prod-eggs-large',
+  name: 'Large Grade A Eggs, 12 ct',
+  brand: 'Great Value',
   category: 'Dairy',
   upc: '818290013218',
 }
