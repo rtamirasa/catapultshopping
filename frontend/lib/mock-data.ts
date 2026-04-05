@@ -404,6 +404,163 @@ export const MOCK_SCAN_RESULT = {
   recommendation: MOCK_RECOMMENDATION,
 }
 
+// ─── Cheaper Alternatives (same-store substitution) ─────────────────────────
+
+export type AlternativeBadge =
+  | 'Best Value'
+  | 'Similar Taste'
+  | 'Highest Rated'
+  | 'Cheapest Swap'
+  | 'Staff Pick'
+
+export interface CheaperAlternative {
+  id: string
+  name: string
+  brand: string
+  image: string | null
+  currentPrice: number
+  originalPriceComparison: number
+  savingsAmount: number
+  rating: number
+  reviewCount: number
+  badge: AlternativeBadge
+  recommendationReason: string
+  inStock: boolean
+  confidenceScore: number
+}
+
+export interface AlternativesScanData {
+  scannedProduct: typeof MOCK_SCAN_RESULT
+  cheaperAlternatives: CheaperAlternative[]
+  savingsSummary: {
+    maxSavings: number
+    averageSavings: number
+    totalAlternatives: number
+    summaryText: string
+  }
+  verificationStats: {
+    observationsToday: number
+    lastRefreshed: string
+    dataSource: string
+  }
+  isAlreadyCheapest: boolean
+  cheapestMessage: string | null
+}
+
+export const MOCK_CHEAPER_ALTERNATIVES: CheaperAlternative[] = [
+  {
+    id: 'alt_001',
+    name: 'Fage Total 0% Greek Yogurt, Plain',
+    brand: 'Fage',
+    image: null,
+    currentPrice: 4.29,
+    originalPriceComparison: 5.49,
+    savingsAmount: 1.20,
+    rating: 4.6,
+    reviewCount: 1284,
+    badge: 'Best Value',
+    recommendationReason: '4.6 stars and 22% cheaper — most popular swap in this aisle',
+    inStock: true,
+    confidenceScore: 91,
+  },
+  {
+    id: 'alt_002',
+    name: 'Stonyfield Organic Greek Yogurt, Plain',
+    brand: 'Stonyfield',
+    image: null,
+    currentPrice: 4.79,
+    originalPriceComparison: 5.49,
+    savingsAmount: 0.70,
+    rating: 4.4,
+    reviewCount: 876,
+    badge: 'Similar Taste',
+    recommendationReason: 'Organic certified with a flavor profile shoppers say is closest to Chobani',
+    inStock: true,
+    confidenceScore: 88,
+  },
+  {
+    id: 'alt_003',
+    name: '365 Organic Greek Yogurt, Plain',
+    brand: '365 by Whole Foods',
+    image: null,
+    currentPrice: 3.49,
+    originalPriceComparison: 5.49,
+    savingsAmount: 2.00,
+    rating: 4.1,
+    reviewCount: 412,
+    badge: 'Cheapest Swap',
+    recommendationReason: 'Save $2.00 — the store brand with solid reviews',
+    inStock: true,
+    confidenceScore: 94,
+  },
+  {
+    id: 'alt_004',
+    name: 'Siggi\'s Icelandic Skyr, Plain',
+    brand: 'Siggi\'s',
+    image: null,
+    currentPrice: 4.99,
+    originalPriceComparison: 5.49,
+    savingsAmount: 0.50,
+    rating: 4.8,
+    reviewCount: 2103,
+    badge: 'Highest Rated',
+    recommendationReason: '4.8 rating — the highest-rated alternative in the dairy aisle',
+    inStock: true,
+    confidenceScore: 86,
+  },
+  {
+    id: 'alt_005',
+    name: 'Maple Hill Creamery Greek Yogurt, Plain',
+    brand: 'Maple Hill',
+    image: null,
+    currentPrice: 4.49,
+    originalPriceComparison: 5.49,
+    savingsAmount: 1.00,
+    rating: 4.5,
+    reviewCount: 327,
+    badge: 'Staff Pick',
+    recommendationReason: 'Grass-fed, 100% organic — a premium option at 18% less',
+    inStock: false,
+    confidenceScore: 79,
+  },
+]
+
+export const MOCK_ALTERNATIVES_SCAN_DATA: AlternativesScanData = {
+  scannedProduct: MOCK_SCAN_RESULT,
+  cheaperAlternatives: MOCK_CHEAPER_ALTERNATIVES,
+  savingsSummary: {
+    maxSavings: 2.00,
+    averageSavings: 1.08,
+    totalAlternatives: 5,
+    summaryText: 'You could save up to $2.00 on this item with a smart swap',
+  },
+  verificationStats: {
+    observationsToday: 34,
+    lastRefreshed: '2 mins ago',
+    dataSource: 'Based on recent in-store observations and shopper data',
+  },
+  isAlreadyCheapest: false,
+  cheapestMessage: null,
+}
+
+export const MOCK_ALREADY_CHEAPEST: AlternativesScanData = {
+  scannedProduct: MOCK_SCAN_RESULT,
+  cheaperAlternatives: [],
+  savingsSummary: {
+    maxSavings: 0,
+    averageSavings: 0,
+    totalAlternatives: 0,
+    summaryText: '',
+  },
+  verificationStats: {
+    observationsToday: 34,
+    lastRefreshed: '2 mins ago',
+    dataSource: 'Based on recent in-store observations and shopper data',
+  },
+  isAlreadyCheapest: true,
+  cheapestMessage: "You're already looking at one of the best-value options in this aisle.",
+}
+
 // Basket ──────────────────────────────────────────────────────────────────────
 
 export const MOCK_BASKET: Basket = {
@@ -829,4 +986,108 @@ export const MOCK_USER_PROFILE: UserProfile = {
     { id: 'rs_004', productName: 'RXBAR Chocolate Sea Salt', store: 'Target', price: 2.79, timestamp: '2 hrs ago', action: 'buy_now' },
     { id: 'rs_005', productName: 'Siete Almond Flour Tortillas', store: 'Whole Foods', price: 8.99, timestamp: 'Yesterday', action: 'wait' },
   ],
+}
+
+// ─── Receipt Scan ──────────────────────────────────────────────────────────
+
+export interface ReceiptLineItem {
+  id: string
+  rawText: string
+  matchedProduct: Product | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  matchedToList: string | null
+  isNewItem: boolean
+}
+
+export interface ParsedReceipt {
+  id: string
+  store: string
+  date: string
+  lineItems: ReceiptLineItem[]
+  subtotal: number
+  tax: number
+  total: number
+  matchedListId: string | null
+  matchedListName: string | null
+  itemsMatchedToList: number
+  newItemsDetected: number
+  pricesUpdated: number
+}
+
+export const MOCK_PARSED_RECEIPT: ParsedReceipt = {
+  id: 'rcpt_001',
+  store: 'Whole Foods',
+  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  lineItems: [
+    {
+      id: 'rli_001',
+      rawText: 'CHOBANI GRK YOG PLN 16OZ',
+      matchedProduct: { id: 'prod_001', name: 'Chobani Greek Yogurt, Plain', brand: 'Chobani', category: 'Dairy' },
+      quantity: 2,
+      unitPrice: 5.49,
+      lineTotal: 10.98,
+      matchedToList: 'list_001',
+      isNewItem: false,
+    },
+    {
+      id: 'rli_002',
+      rawText: 'DKB 21 WHOLE GRAINS',
+      matchedProduct: { id: 'prod_002', name: "Dave's Killer Bread, 21 Whole Grains", brand: "Dave's Killer Bread", category: 'Bakery' },
+      quantity: 1,
+      unitPrice: 6.99,
+      lineTotal: 6.99,
+      matchedToList: 'list_001',
+      isNewItem: false,
+    },
+    {
+      id: 'rli_003',
+      rawText: 'ORG CHKN BRST 1LB',
+      matchedProduct: { id: 'prod_007', name: 'Organic Chicken Breast, 1 lb', brand: 'Organic Prairie', category: 'Meat' },
+      quantity: 2,
+      unitPrice: 9.99,
+      lineTotal: 19.98,
+      matchedToList: 'list_001',
+      isNewItem: false,
+    },
+    {
+      id: 'rli_004',
+      rawText: 'JASMINE RICE 5LB',
+      matchedProduct: { id: 'prod_008', name: 'Jasmine Rice, 5 lb', brand: "Trader Joe's", category: 'Pantry' },
+      quantity: 1,
+      unitPrice: 7.49,
+      lineTotal: 7.49,
+      matchedToList: 'list_001',
+      isNewItem: false,
+    },
+    {
+      id: 'rli_005',
+      rawText: 'OATLY OAT MILK XTRA CRM',
+      matchedProduct: { id: 'prod_014', name: 'Oatly Oat Milk, Extra Creamy', brand: 'Oatly', category: 'Dairy Alt' },
+      quantity: 1,
+      unitPrice: 5.99,
+      lineTotal: 5.99,
+      matchedToList: null,
+      isNewItem: true,
+    },
+    {
+      id: 'rli_006',
+      rawText: 'SIETE ALM FLOUR TORT',
+      matchedProduct: { id: 'prod_005', name: 'Siete Almond Flour Tortillas', brand: 'Siete', category: 'Pantry' },
+      quantity: 1,
+      unitPrice: 8.99,
+      lineTotal: 8.99,
+      matchedToList: null,
+      isNewItem: true,
+    },
+  ],
+  subtotal: 60.42,
+  tax: 3.63,
+  total: 64.05,
+  matchedListId: MOCK_ACTIVE_LIST.id,
+  matchedListName: MOCK_ACTIVE_LIST.name,
+  itemsMatchedToList: 4,
+  newItemsDetected: 2,
+  pricesUpdated: 4,
 }
