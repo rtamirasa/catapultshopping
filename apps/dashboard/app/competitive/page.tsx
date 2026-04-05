@@ -2,6 +2,7 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { PriceSimulatorML } from "@/components/dashboard/price-simulator-ml";
 import { products, competitors, lostRevenueBreakdown, priceSensitivityData } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,18 @@ export default function CompetitivePage() {
   const totalLosses = products.reduce((acc, p) => acc + p.lossesToCompetitor, 0);
   const winRate = ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1);
   const totalLostRevenue = lostRevenueBreakdown.reduce((acc, c) => acc + c.lostRevenue, 0);
+
+  // Sample product for price simulator - using a product from ML model
+  const simulatorProduct = {
+    id: 'eggs_grade_a_large',
+    name: 'eggs_grade_a_large', // Must match ML API product name
+    currentPrice: 4.99,
+    competitorPrice: 5.49,
+    baseWinRate: parseFloat(winRate),
+    baseConversion: 38, // ~38% conversion rate from overview
+    dailyTraffic: 250, // Estimated daily scans
+    avgCompetitorPrice: 5.49
+  };
 
   return (
     <DashboardLayout title="Competitive Analysis">
@@ -80,6 +93,9 @@ export default function CompetitivePage() {
             icon={<Users className="h-5 w-5" />}
           />
         </div>
+
+        {/* ML-Powered Price Simulator */}
+        <PriceSimulatorML product={simulatorProduct} />
 
         {/* Lost Revenue Breakdown */}
         <div className="rounded-xl border border-border bg-card">

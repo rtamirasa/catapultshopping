@@ -13,10 +13,15 @@ export async function fetchProducts() {
 // Fetch all stores
 export async function fetchStores() {
   const storesSnap = await getDocs(collection(db, 'stores'))
-  return storesSnap.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  }))
+  return storesSnap.docs.map(doc => {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      ...data,
+      // Convert GeoPoint to string if it exists
+      location: typeof data.location === 'object' && data.location?.latitude ? `${data.location.latitude.toFixed(4)}, ${data.location.longitude.toFixed(4)}` : (data.location || '')
+    }
+  })
 }
 
 // Fetch price movements (existing from consumer)
