@@ -4,7 +4,7 @@
 
 ## Overview
 
-ShelfSync is a dual-platform system:
+AisleIQ is a dual-platform system:
 - **Consumer App** - Mobile-first shopping app for price comparison, product scanning, and grocery lists
 - **Dashboard** - Retail analytics platform for attribution tracking, competitive intelligence, and ML-powered pricing optimization
 
