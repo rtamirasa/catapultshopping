@@ -2,7 +2,8 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { stores } from "@/lib/mock-data";
+import { useStores } from "@/lib/hooks/use-stores";
+import { stores as mockStores } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -24,12 +25,28 @@ import {
   Activity,
 } from "lucide-react";
 
-// Underperforming stores
-const underperformingStores = stores.filter(
-  (s) => s.stockHealth < 70 || s.productPresence < 80 || s.avgPrice > 5.8
-);
-
 export default function StoresPage() {
+  const { stores: firebaseStores, loading, error } = useStores();
+
+  // Merge Firebase stores with mock store metrics for now (Phase 2 will use real metrics)
+  const stores = firebaseStores.length > 0
+    ? firebaseStores.map((fbStore, index) => ({
+        ...fbStore,
+        // Add mock metrics for now
+        stockHealth: mockStores[index % mockStores.length]?.stockHealth || 85,
+        productPresence: mockStores[index % mockStores.length]?.productPresence || 90,
+        avgPrice: mockStores[index % mockStores.length]?.avgPrice || 5.49,
+        scanFrequency: mockStores[index % mockStores.length]?.scanFrequency || 120,
+        lastScan: mockStores[index % mockStores.length]?.lastScan || "2 hours ago",
+        region: mockStores[index % mockStores.length]?.region || "Midwest",
+      }))
+    : mockStores;
+
+  // Underperforming stores
+  const underperformingStores = stores.filter(
+    (s) => s.stockHealth < 70 || s.productPresence < 80 || s.avgPrice > 5.8
+  );
+
   const avgStockHealth = Math.round(
     stores.reduce((acc, s) => acc + s.stockHealth, 0) / stores.length
   );
@@ -37,6 +54,26 @@ export default function StoresPage() {
     stores.reduce((acc, s) => acc + s.productPresence, 0) / stores.length
   );
   const totalScans = stores.reduce((acc, s) => acc + s.scanFrequency, 0);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Store Performance">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Store Performance">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">Error loading data: {error.message}</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Store Performance">

@@ -6,7 +6,8 @@ import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { WinLossFeed } from "@/components/dashboard/win-loss-feed";
 import { ConversionFunnel } from "@/components/dashboard/conversion-funnel";
 import { PriceSensitivityChart } from "@/components/dashboard/price-sensitivity-chart";
-import { products, coverageStats } from "@/lib/mock-data";
+import { useProducts } from "@/lib/hooks/use-products";
+import { products as mockProducts, coverageStats } from "@/lib/mock-data";
 import {
   TrendingUp,
   TrendingDown,
@@ -17,14 +18,39 @@ import {
 } from "lucide-react";
 
 export default function OverviewPage() {
-  // Calculate attribution KPIs from mock data
-  const totalScans = products.reduce((acc, p) => acc + p.scansToday, 0);
-  const totalPurchases = products.reduce((acc, p) => acc + p.purchasesToday, 0);
+  const { products: firebaseProducts, loading, error } = useProducts();
+
+  // Use Firebase products if available, otherwise fall back to mock data
+  const products = firebaseProducts.length > 0 ? firebaseProducts : mockProducts;
+
+  // Calculate attribution KPIs from mock data (Phase 2 will use real attribution data)
+  const totalScans = mockProducts.reduce((acc, p) => acc + p.scansToday, 0);
+  const totalPurchases = mockProducts.reduce((acc, p) => acc + p.purchasesToday, 0);
   const overallConversion = ((totalPurchases / totalScans) * 100).toFixed(1);
-  
-  const totalWins = products.reduce((acc, p) => acc + p.winsVsCompetitor, 0);
-  const totalLosses = products.reduce((acc, p) => acc + p.lossesToCompetitor, 0);
+
+  const totalWins = mockProducts.reduce((acc, p) => acc + p.winsVsCompetitor, 0);
+  const totalLosses = mockProducts.reduce((acc, p) => acc + p.lossesToCompetitor, 0);
   const winRate = ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Overview">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Overview">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">Error loading data: {error.message}</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Overview">

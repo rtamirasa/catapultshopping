@@ -2,7 +2,10 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { volatilityLeaderboard, products, stores, priceTrendData } from "@/lib/mock-data";
+import { usePriceMovements } from "@/lib/hooks/use-price-movements";
+import { useProducts } from "@/lib/hooks/use-products";
+import { useStores } from "@/lib/hooks/use-stores";
+import { volatilityLeaderboard, products as mockProducts, stores as mockStores, priceTrendData } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -39,20 +42,51 @@ const heatmapData = [
   { day: "Sun", morning: 0, afternoon: -1, evening: -2 },
 ];
 
-// Store competitiveness data
-const storeCompetitiveness = stores.map((store) => ({
-  ...store,
-  competitiveness: Math.round(Math.random() * 40 + 60),
-  priceIndex: (Math.random() * 0.4 + 0.8).toFixed(2),
-}));
-
 export default function PricingPage() {
+  const { movements, loading: loadingMovements, error: errorMovements } = usePriceMovements();
+  const { products: firebaseProducts, loading: loadingProducts, error: errorProducts } = useProducts();
+  const { stores: firebaseStores, loading: loadingStores, error: errorStores } = useStores();
+
+  // Use Firebase data if available, otherwise fall back to mock
+  const products = firebaseProducts.length > 0 ? firebaseProducts : mockProducts;
+  const stores = firebaseStores.length > 0 ? firebaseStores : mockStores;
+
+  const loading = loadingMovements || loadingProducts || loadingStores;
+  const error = errorMovements || errorProducts || errorStores;
+
   const avgVolatility = Math.round(
-    products.reduce((acc, p) => acc + p.volatilityScore, 0) / products.length
+    mockProducts.reduce((acc, p) => acc + p.volatilityScore, 0) / mockProducts.length
   );
-  
-  const priceDroppingProducts = products.filter((p) => p.priceChange < 0).length;
-  const priceIncreasingProducts = products.filter((p) => p.priceChange > 0).length;
+
+  const priceDroppingProducts = movements.drops?.length || mockProducts.filter((p) => p.priceChange < 0).length;
+  const priceIncreasingProducts = movements.spikes?.length || mockProducts.filter((p) => p.priceChange > 0).length;
+
+  // Store competitiveness data - use Firebase stores with mock competitiveness metrics
+  const storeCompetitiveness = stores.map((store) => ({
+    ...store,
+    competitiveness: Math.round(Math.random() * 40 + 60),
+    priceIndex: (Math.random() * 0.4 + 0.8).toFixed(2),
+  }));
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Pricing Intelligence">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Pricing Intelligence">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">Error loading data: {error.message}</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Pricing Intelligence">

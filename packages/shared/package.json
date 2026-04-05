@@ -1,0 +1,37 @@
+{
+  "name": "@shelfsync/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared types, utilities, and Firebase config for ShelfSync apps",
+  "main": "./lib/index.ts",
+  "types": "./lib/index.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.ts",
+      "types": "./lib/index.ts"
+    },
+    "./firebase": {
+      "import": "./lib/firebase.ts",
+      "types": "./lib/firebase.ts"
+    },
+    "./types": {
+      "import": "./lib/types.ts",
+      "types": "./lib/types.ts"
+    },
+    "./price-calculator": {
+      "import": "./lib/price-calculator.ts",
+      "types": "./lib/price-calculator.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint lib/**/*.ts"
+  },
+  "dependencies": {
+    "firebase": "^12.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
