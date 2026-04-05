@@ -45,6 +45,14 @@ export function Header({ title = "Overview" }: HeaderProps) {
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
 
+  // Store date range in localStorage so other components can access it
+  const handleDateRangeChange = (value: string) => {
+    setDateRange(value);
+    localStorage.setItem('dashboard-date-range', value);
+    // Trigger a custom event so other components can refresh
+    window.dispatchEvent(new CustomEvent('date-range-changed', { detail: value }));
+  };
+
   const handleStoreToggle = (storeId: string) => {
     setSelectedStores((prev) =>
       prev.includes(storeId)
@@ -71,7 +79,7 @@ export function Header({ title = "Overview" }: HeaderProps) {
 
         <div className="flex items-center gap-3">
           {/* Date Range Selector */}
-          <Select value={dateRange} onValueChange={setDateRange}>
+          <Select value={dateRange} onValueChange={handleDateRangeChange}>
             <SelectTrigger className="h-9 w-36 bg-secondary border-0">
               <SelectValue />
             </SelectTrigger>
