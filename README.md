@@ -1,4 +1,4 @@
-# ShelfSync
+# AisleIQ
 
 **Smart grocery shopping platform** with real-time price tracking and retail attribution analytics.
 
