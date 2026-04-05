@@ -1,0 +1,33 @@
+{
+  "name": "shelfsync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ShelfSync - Price comparison and smart shopping across multiple stores",
+  "workspaces": [
+    "apps/consumer",
+    "apps/dashboard",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "npm run dev:consumer & npm run dev:dashboard",
+    "dev:consumer": "npm -w apps/consumer run dev",
+    "dev:dashboard": "npm -w apps/dashboard run dev",
+    "build": "npm run build --workspaces --if-present",
+    "build:consumer": "npm -w apps/consumer run build",
+    "build:dashboard": "npm -w apps/dashboard run build",
+    "start": "npm run start --workspaces --if-present",
+    "start:consumer": "npm -w apps/consumer run start",
+    "start:dashboard": "npm -w apps/dashboard run start",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
