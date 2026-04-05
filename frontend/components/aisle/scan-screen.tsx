@@ -1,33 +1,87 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ScanLine, Upload, Zap, CheckCircle2, Package,
-  ArrowRight, Users, Info, Lock, ImagePlus, Camera
+  ArrowRight, Users, Info, Lock, ImagePlus, Camera, Receipt
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RecommendationBadge } from './recommendation-badge'
 import { ConfidenceBadge, LastSeenBadge, VerificationBadge } from './trust-badges'
-import { MOCK_SCAN_RESULT, MOCK_SHELF_CONTRIBUTION } from '@/lib/mock-data'
+import { AlternativesSection } from './alternatives-section'
+import { ReceiptResult, ReceiptSkeleton } from './receipt-result'
+import { useGroceryLists } from '@/lib/hooks/use-grocery-lists'
+import {
+  MOCK_SCAN_RESULT, MOCK_SHELF_CONTRIBUTION, MOCK_ALTERNATIVES_SCAN_DATA,
+  MOCK_PARSED_RECEIPT,
+} from '@/lib/mock-data'
 
+type ScanMode = 'product' | 'receipt'
 type ScanState = 'idle' | 'scanning' | 'done'
 
 export function ScanScreen() {
+  const [mode, setMode] = useState<ScanMode>('product')
   const [state, setState] = useState<ScanState>('idle')
   const [photosSubmitted, setPhotosSubmitted] = useState(
     MOCK_SHELF_CONTRIBUTION.shelfPhotosSubmitted
   )
+  const [alternativesLoading, setAlternativesLoading] = useState(false)
+  const [showAlternatives, setShowAlternatives] = useState(false)
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  const [showReceipt, setShowReceipt] = useState(false)
+
+  const { lists } = useGroceryLists()
+  const activeList = lists[0]
 
   const { requiredToUnlock, totalListItems } = MOCK_SHELF_CONTRIBUTION
   const isUnlocked = photosSubmitted >= requiredToUnlock
 
   const handleSimulate = () => {
     setState('scanning')
-    setTimeout(() => setState('done'), 2000)
+    setShowAlternatives(false)
+    setAlternativesLoading(false)
+    setReceiptLoading(false)
+    setShowReceipt(false)
+
+    if (mode === 'receipt') {
+      setReceiptLoading(true)
+      setTimeout(() => {
+        setReceiptLoading(false)
+        setShowReceipt(true)
+        setState('done')
+      }, 2500)
+    } else {
+      setTimeout(() => setState('done'), 2000)
+    }
   }
 
-  const handleReset = () => setState('idle')
+  useEffect(() => {
+    if (state !== 'done' || !isUnlocked || mode !== 'product') return
+    setAlternativesLoading(true)
+    const t1 = setTimeout(() => {
+      setAlternativesLoading(false)
+      setShowAlternatives(true)
+    }, 1200)
+    return () => clearTimeout(t1)
+  }, [state, isUnlocked, mode])
+
+  const handleReset = () => {
+    setState('idle')
+    setShowAlternatives(false)
+    setAlternativesLoading(false)
+    setReceiptLoading(false)
+    setShowReceipt(false)
+  }
+
+  const handleModeSwitch = (m: ScanMode) => {
+    if (state === 'scanning') return
+    if (state === 'done') {
+      handleReset()
+    }
+    setMode(m)
+  }
+
   const handleSubmitPhoto = () =>
     setPhotosSubmitted(prev => Math.min(prev + 1, totalListItems))
 
@@ -42,16 +96,181 @@ export function ScanScreen() {
         onSubmitPhoto={handleSubmitPhoto}
       />
 
-      {/* Scanner — always accessible */}
-      {state === 'idle' && <ScanIdle onSimulate={handleSimulate} />}
-      {state === 'scanning' && <ScanScanning />}
-      {state === 'done' && (
-        <ScanResult
-          onReset={handleReset}
-          isUnlocked={isUnlocked}
-          remaining={requiredToUnlock - photosSubmitted}
-        />
+      {/* Mode toggle — always visible so user can switch to receipt after product scan */}
+      <ScanModeToggle mode={mode} onSwitch={handleModeSwitch} disabled={state === 'scanning'} />
+
+      {/* Product scan flow */}
+      {mode === 'product' && (
+        <>
+          {state === 'idle' && <ScanIdle onSimulate={handleSimulate} />}
+          {state === 'scanning' && <ScanScanning />}
+          {state === 'done' && (
+            <>
+              <ScanResult
+                onReset={handleReset}
+                isUnlocked={isUnlocked}
+                remaining={requiredToUnlock - photosSubmitted}
+              />
+              {isUnlocked && (alternativesLoading || showAlternatives) && (
+                <div
+                  className={cn(
+                    'transition-all duration-500',
+                    showAlternatives
+                      ? 'opacity-100 translate-y-0'
+                      : 'opacity-0 translate-y-4',
+                  )}
+                >
+                  <AlternativesSection
+                    data={MOCK_ALTERNATIVES_SCAN_DATA}
+                    isLoading={alternativesLoading}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
+
+      {/* Receipt scan flow */}
+      {mode === 'receipt' && (
+        <>
+          {state === 'idle' && <ReceiptIdle onSimulate={handleSimulate} />}
+          {state === 'scanning' && (receiptLoading ? <ReceiptScanning /> : null)}
+          {state === 'done' && showReceipt && (
+            <div className="transition-all duration-500 opacity-100 translate-y-0">
+              <ReceiptResult receipt={MOCK_PARSED_RECEIPT} activeListName={activeList?.name} onReset={handleReset} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Mode Toggle ─────────────────────────────────────────────────────────────
+
+function ScanModeToggle({ mode, onSwitch, disabled }: { mode: ScanMode; onSwitch: (m: ScanMode) => void; disabled?: boolean }) {
+  return (
+    <div className={cn('flex gap-1.5 bg-secondary/50 p-1 rounded-lg', disabled && 'opacity-50 pointer-events-none')}>
+      <button
+        onClick={() => onSwitch('product')}
+        className={cn(
+          'flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-md transition-all',
+          mode === 'product'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <ScanLine className="size-4" />
+        Product
+      </button>
+      <button
+        onClick={() => onSwitch('receipt')}
+        className={cn(
+          'flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-md transition-all',
+          mode === 'receipt'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <Receipt className="size-4" />
+        Receipt
+      </button>
+    </div>
+  )
+}
+
+// ─── Receipt Idle ────────────────────────────────────────────────────────────
+
+function ReceiptIdle({ onSimulate }: { onSimulate: () => void }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Scan or upload your receipt after shopping to store your purchase and automatically update your lists.
+      </p>
+
+      <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border-2 border-dashed border-primary/40 bg-secondary/30 flex flex-col items-center justify-center gap-4">
+        <div className="absolute top-3 left-3 size-6 border-t-2 border-l-2 border-primary rounded-tl-sm" />
+        <div className="absolute top-3 right-3 size-6 border-t-2 border-r-2 border-primary rounded-tr-sm" />
+        <div className="absolute bottom-3 left-3 size-6 border-b-2 border-l-2 border-primary rounded-bl-sm" />
+        <div className="absolute bottom-3 right-3 size-6 border-b-2 border-r-2 border-primary rounded-br-sm" />
+        <div className="rounded-2xl bg-secondary/80 p-5 backdrop-blur-sm">
+          <Receipt className="size-10 text-primary" />
+        </div>
+        <p className="text-xs text-muted-foreground font-medium">Position your receipt here</p>
+      </div>
+
+      <button
+        onClick={onSimulate}
+        className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-3.5 font-bold text-sm transition-all duration-200 hover:opacity-90 active:scale-95"
+      >
+        <Zap className="size-4" />
+        Simulate Receipt Scan
+      </button>
+      <label className="w-full flex items-center justify-center gap-2 bg-secondary border border-border text-foreground rounded-xl px-4 py-3.5 font-bold text-sm cursor-pointer transition-all duration-200 hover:bg-secondary/80 active:scale-95">
+        <Upload className="size-4" />
+        Upload Receipt Photo
+        <input type="file" accept="image/*" className="sr-only" />
+      </label>
+
+      <div className="flex items-start gap-2 bg-secondary/50 rounded-xl p-3">
+        <Info className="size-4 text-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Receipt scanning stores your purchase, updates prices in your lists, and detects new items to track.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Receipt Scanning ────────────────────────────────────────────────────────
+
+function ReceiptScanning() {
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setStep(1), 800)
+    const t2 = setTimeout(() => setStep(2), 1600)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
+  const steps = [
+    'Reading receipt text',
+    'Matching products',
+    'Updating your lists',
+  ]
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-6">
+      <div className="relative size-40">
+        <div className="absolute inset-0 rounded-2xl border-2 border-primary/30" />
+        <div className="absolute top-2 left-2 size-8 border-t-2 border-l-2 border-primary rounded-tl-sm" />
+        <div className="absolute top-2 right-2 size-8 border-t-2 border-r-2 border-primary rounded-tr-sm" />
+        <div className="absolute bottom-2 left-2 size-8 border-b-2 border-l-2 border-primary rounded-bl-sm" />
+        <div className="absolute bottom-2 right-2 size-8 border-b-2 border-r-2 border-primary rounded-br-sm" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Receipt className="size-10 text-primary live-pulse" />
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="font-bold text-foreground">Processing receipt...</p>
+        <p className="text-sm text-muted-foreground mt-1">Extracting items and matching to your lists</p>
+      </div>
+      <div className="w-full space-y-2">
+        {steps.map((s, i) => (
+          <div key={s} className="flex items-center gap-3">
+            <div className={cn(
+              'size-5 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300',
+              i <= step ? 'bg-primary' : 'bg-secondary border border-border'
+            )}>
+              {i <= step && <CheckCircle2 className="size-3 text-primary-foreground" />}
+            </div>
+            <p className={cn('text-sm transition-colors duration-300', i <= step ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+              {s}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
