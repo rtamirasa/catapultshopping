@@ -3,6 +3,7 @@
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { useStores } from "@/lib/hooks/use-stores";
+import { useStoreMetrics } from "@/lib/hooks/use-store-metrics";
 import { stores as mockStores } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -26,20 +27,26 @@ import {
 } from "lucide-react";
 
 export default function StoresPage() {
-  const { stores: firebaseStores, loading, error } = useStores();
+  const { stores: firebaseStores, loading: loadingStores, error: errorStores } = useStores();
+  const { metrics: storeMetrics, loading: loadingMetrics, error: errorMetrics } = useStoreMetrics();
 
-  // Merge Firebase stores with mock store metrics for now (Phase 2 will use real metrics)
+  const loading = loadingStores || loadingMetrics;
+  const error = errorStores || errorMetrics;
+
+  // Merge Firebase stores with real metrics from storeMetrics
   const stores = firebaseStores.length > 0
-    ? firebaseStores.map((fbStore, index) => ({
-        ...fbStore,
-        // Add mock metrics for now
-        stockHealth: mockStores[index % mockStores.length]?.stockHealth || 85,
-        productPresence: mockStores[index % mockStores.length]?.productPresence || 90,
-        avgPrice: mockStores[index % mockStores.length]?.avgPrice || 5.49,
-        scanFrequency: mockStores[index % mockStores.length]?.scanFrequency || 120,
-        lastScan: mockStores[index % mockStores.length]?.lastScan || "2 hours ago",
-        region: mockStores[index % mockStores.length]?.region || "Midwest",
-      }))
+    ? firebaseStores.map((fbStore) => {
+        const metrics = storeMetrics.find(m => m.storeId === fbStore.id);
+        return {
+          ...fbStore,
+          stockHealth: metrics?.stockHealth || 85,
+          productPresence: metrics?.productPresence || 90,
+          avgPrice: metrics?.avgPrice || 5.49,
+          scanFrequency: metrics?.scansTotal || 0,
+          lastScan: "2 hours ago", // Mock for now
+          region: mockStores[0]?.region || "Midwest", // Mock for now
+        };
+      })
     : mockStores;
 
   // Underperforming stores

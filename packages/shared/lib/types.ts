@@ -180,3 +180,123 @@ export interface ShoppingOptimization {
   savings: number
   savingsPercent: number
 }
+
+// Dashboard Attribution Types (Phase 2)
+
+export interface Scan {
+  id: string
+  productId: string
+  storeId: string
+  userId: string
+  timestamp: Date | string
+  sessionId: string
+}
+
+export interface Receipt {
+  id: string
+  userId: string
+  storeId: string
+  timestamp: Date | string
+  items: ReceiptItem[]
+  totalAmount: number
+}
+
+export interface ReceiptItem {
+  productId: string
+  productName?: string
+  price: number
+  quantity: number
+}
+
+export interface WinLossEvent {
+  id: string
+  sessionId: string
+  yourProductId: string
+  competitorProductId: string
+  outcome: 'win' | 'loss'
+  yourPrice: number
+  competitorPrice: number
+  priceGap: number
+  priceGapPercentage: number
+  timestamp: Date | string
+  storeId: string
+  userId: string
+}
+
+export interface Competitor {
+  id: string
+  name: string
+  brand: string
+  category: string
+  competesWithProductIds: string[]
+  avgPrice?: number
+  imageUrl?: string
+}
+
+export interface Alert {
+  id: string
+  type: 'price_spike' | 'conversion_drop' | 'competitor_win_streak' | 'low_stock' | 'high_win_rate' | 'price_opportunity'
+  severity: 'critical' | 'warning' | 'info'
+  title: string
+  description: string
+  productId?: string
+  storeId?: string
+  timestamp: Date | string
+  isRead: boolean
+}
+
+export interface CoverageStats {
+  totalScans: number
+  totalReceipts: number
+  uniqueShoppers: number
+  overallConversionRate: number
+  totalWins: number
+  totalLosses: number
+  revenueAttributed: number
+  lostRevenueToCompetitors: number
+}
+
+export interface ProductMetrics {
+  id: string
+  productId: string
+  date: string
+  scansTotal: number
+  purchasesTotal: number
+  conversionRate: number
+  winsVsCompetitor: number
+  lossesToCompetitor: number
+  winRate: number
+  revenueAttributed: number
+}
+
+export interface StoreMetrics {
+  id: string
+  storeId: string
+  date: string
+  scansTotal: number
+  purchasesTotal: number
+  conversionRate: number
+  winRate: number
+  stockHealth?: number
+  productPresence?: number
+  avgPrice?: number
+}
+
+export interface ShelfImage {
+  id: string
+  productId: string
+  storeId: string
+  imageUrl: string
+  position: 'eye-level' | 'upper-shelf' | 'lower-shelf' | 'endcap'
+  neighbors: string[]
+  timestamp: Date | string
+}
+
+export interface StockSignal {
+  id: string
+  productId: string
+  storeId: string
+  level: 'high' | 'medium' | 'low'
+  trend: 'increasing' | 'stable' | 'decreasing'
+  timestamp: Date | string
+}

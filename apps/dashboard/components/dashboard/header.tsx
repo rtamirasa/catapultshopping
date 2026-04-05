@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Download, ChevronDown, RefreshCw } from "lucide-react";
-import { stores } from "@/lib/mock-data";
+import { useStores } from "@/lib/hooks/use-stores";
 
 const categories = [
   "All Categories",
@@ -40,6 +40,7 @@ interface HeaderProps {
 }
 
 export function Header({ title = "Overview" }: HeaderProps) {
+  const { stores, loading: loadingStores } = useStores();
   const [dateRange, setDateRange] = useState("7d");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
@@ -96,15 +97,25 @@ export function Header({ title = "Overview" }: HeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {stores.map((store) => (
-                <DropdownMenuCheckboxItem
-                  key={store.id}
-                  checked={selectedStores.includes(store.id)}
-                  onCheckedChange={() => handleStoreToggle(store.id)}
-                >
-                  {store.name}
-                </DropdownMenuCheckboxItem>
-              ))}
+              {loadingStores ? (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  Loading stores...
+                </div>
+              ) : stores.length === 0 ? (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  No stores found
+                </div>
+              ) : (
+                stores.map((store) => (
+                  <DropdownMenuCheckboxItem
+                    key={store.id}
+                    checked={selectedStores.includes(store.id)}
+                    onCheckedChange={() => handleStoreToggle(store.id)}
+                  >
+                    {store.name}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

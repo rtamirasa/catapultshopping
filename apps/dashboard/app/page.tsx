@@ -7,7 +7,9 @@ import { WinLossFeed } from "@/components/dashboard/win-loss-feed";
 import { ConversionFunnel } from "@/components/dashboard/conversion-funnel";
 import { PriceSensitivityChart } from "@/components/dashboard/price-sensitivity-chart";
 import { useProducts } from "@/lib/hooks/use-products";
-import { products as mockProducts, coverageStats } from "@/lib/mock-data";
+import { useCoverageStats } from "@/lib/hooks/use-coverage-stats";
+import { useProductMetrics } from "@/lib/hooks/use-product-metrics";
+import { products as mockProducts, coverageStats as mockCoverageStats } from "@/lib/mock-data";
 import {
   TrendingUp,
   TrendingDown,
@@ -18,25 +20,32 @@ import {
 } from "lucide-react";
 
 export default function OverviewPage() {
-  const { products: firebaseProducts, loading, error } = useProducts();
+  const { products: firebaseProducts, loading: loadingProducts, error: errorProducts } = useProducts();
+  const { stats: coverageStats, loading: loadingStats, error: errorStats } = useCoverageStats();
+  const { metrics: productMetrics, loading: loadingMetrics, error: errorMetrics } = useProductMetrics();
 
-  // Use Firebase products if available, otherwise fall back to mock data
+  const loading = loadingProducts || loadingStats || loadingMetrics;
+  const error = errorProducts || errorStats || errorMetrics;
+
+  // Use Firebase data if available, otherwise fall back to mock data
   const products = firebaseProducts.length > 0 ? firebaseProducts : mockProducts;
+  const stats = coverageStats || mockCoverageStats;
 
-  // Calculate attribution KPIs from mock data (Phase 2 will use real attribution data)
-  const totalScans = mockProducts.reduce((acc, p) => acc + p.scansToday, 0);
-  const totalPurchases = mockProducts.reduce((acc, p) => acc + p.purchasesToday, 0);
-  const overallConversion = ((totalPurchases / totalScans) * 100).toFixed(1);
-
-  const totalWins = mockProducts.reduce((acc, p) => acc + p.winsVsCompetitor, 0);
-  const totalLosses = mockProducts.reduce((acc, p) => acc + p.lossesToCompetitor, 0);
-  const winRate = ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1);
+  // Calculate KPIs from real data
+  const totalScans = stats.totalScans || 0;
+  const totalPurchases = stats.totalReceipts || 0;
+  const overallConversion = stats.overallConversionRate?.toFixed(1) || '0.0';
+  const totalWins = stats.totalWins || 0;
+  const totalLosses = stats.totalLosses || 0;
+  const winRate = totalWins + totalLosses > 0
+    ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1)
+    : '0.0';
 
   if (loading) {
     return (
       <DashboardLayout title="Overview">
         <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-muted-foreground">Loading attribution data...</div>
         </div>
       </DashboardLayout>
     );
@@ -45,8 +54,12 @@ export default function OverviewPage() {
   if (error) {
     return (
       <DashboardLayout title="Overview">
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <div className="text-destructive">Error loading data: {error.message}</div>
+          <p className="text-sm text-muted-foreground">
+            Have you seeded the attribution data? Visit{' '}
+            <a href="/admin/seed" className="text-primary hover:underline">/admin/seed</a> to seed data.
+          </p>
         </div>
       </DashboardLayout>
     );
@@ -99,7 +112,7 @@ export default function OverviewPage() {
           />
           <KpiCard
             title="Revenue Attributed"
-            value={`$${coverageStats.revenueAttributed.toLocaleString()}`}
+            value={`$${(stats.revenueAttributed || 0).toLocaleString()}`}
             subtitle="Today"
             change={15.2}
             changeLabel="vs yesterday"
@@ -110,7 +123,7 @@ export default function OverviewPage() {
           />
           <KpiCard
             title="Lost to Competitors"
-            value={`$${coverageStats.lostRevenueToCompetitors.toLocaleString()}`}
+            value={`$${(stats.lostRevenueToCompetitors || 0).toLocaleString()}`}
             subtitle="Recoverable"
             change={-8.7}
             changeLabel="vs yesterday"
@@ -146,7 +159,7 @@ export default function OverviewPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
             title="Unique Shoppers"
-            value={coverageStats.uniqueShoppers.toLocaleString()}
+            value={(stats.uniqueShoppers || 0).toLocaleString()}
             change={5.2}
             changeLabel="vs yesterday"
             trend="up"

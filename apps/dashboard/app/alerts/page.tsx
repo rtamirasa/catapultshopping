@@ -2,7 +2,9 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { alerts, type Alert } from "@/lib/mock-data";
+import { useAlerts } from "@/lib/hooks/use-alerts";
+import { alerts as mockAlerts, type Alert as MockAlert } from "@/lib/mock-data";
+import type { Alert } from "@shelfsync/shared/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,13 +62,17 @@ const severityBgColors = {
 };
 
 export default function AlertsPage() {
+  const { alerts: firebaseAlerts, loading, error } = useAlerts();
   const [filter, setFilter] = useState<"all" | "unread" | "competitive">("all");
-  
+
+  // Use Firebase alerts if available, otherwise fall back to mock
+  const alerts = firebaseAlerts.length > 0 ? firebaseAlerts : mockAlerts;
+
   const criticalAlerts = alerts.filter((a) => a.severity === "critical").length;
   const warningAlerts = alerts.filter((a) => a.severity === "warning").length;
   const unreadAlerts = alerts.filter((a) => !a.isRead).length;
   const competitiveAlerts = alerts.filter(
-    (a) => a.type === "competitor_win_streak" || a.type === "conversion_drop" || a.type === "price_sensitivity"
+    (a) => a.type === "competitor_win_streak" || a.type === "conversion_drop"
   ).length;
 
   const filteredAlerts =
@@ -74,9 +80,19 @@ export default function AlertsPage() {
       ? alerts.filter((a) => !a.isRead)
       : filter === "competitive"
       ? alerts.filter(
-          (a) => a.type === "competitor_win_streak" || a.type === "conversion_drop" || a.type === "price_sensitivity"
+          (a) => a.type === "competitor_win_streak" || a.type === "conversion_drop"
         )
       : alerts;
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Alerts">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading alerts...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Alerts">
@@ -167,8 +183,15 @@ export default function AlertsPage() {
   );
 }
 
-function AlertItem({ alert }: { alert: Alert }) {
+function AlertItem({ alert }: { alert: any }) {
   const Icon = alertTypeIcons[alert.type] || AlertTriangle;
+
+  // Format timestamp
+  const timestamp = alert.timestamp?.toDate
+    ? new Date(alert.timestamp.toDate()).toLocaleDateString()
+    : typeof alert.timestamp === 'string'
+    ? alert.timestamp
+    : 'Unknown';
 
   return (
     <div
@@ -235,7 +258,7 @@ function AlertItem({ alert }: { alert: Alert }) {
             <Badge variant="secondary" className="text-xs font-normal">
               {alertTypeLabels[alert.type] || alert.type}
             </Badge>
-            <span>{alert.timestamp}</span>
+            <span>{timestamp}</span>
           </div>
         </div>
       </div>
